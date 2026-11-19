@@ -1,8 +1,18 @@
 # Nested sampling: from scratch to supernova cosmology
 
-I'm building this project to understand nested sampling properly, from the basic algorithm up to a real cosmological model comparison. Stage 1 is a nested sampler written in NumPy and tested on Gaussian problems where the evidence is known exactly. Stage 2 runs the same tests with BlackJAX Nested Slice Sampling and looks at how it scales with dimension. Next is a ΛCDM against wCDM comparison with the Pantheon+ supernovae.
+I built this project to understand nested sampling properly, from the basic algorithm up to a real cosmological model comparison. It has three stages, and each one builds on the one before.
 
-I produced every result here on a CPU. Stage 2 uses GPU-capable code (JAX), but I have not run it on a GPU.
+1. **A nested sampler in NumPy.** I tested it on Gaussian problems where the evidence is known exactly.
+2. **The same tests with BlackJAX Nested Slice Sampling**, the GPU-oriented method from Will Handley's group. I wanted to see for myself why slice sampling replaces the rejection step, and how much that buys in higher dimensions.
+3. **A real model comparison.** I computed the Bayesian evidence for flat ΛCDM against flat wCDM using the Pantheon+ supernovae.
+
+| Stage | Question | Result |
+|---|---|---|
+| 1 | Does my sampler recover the analytic $\ln Z$? | Yes, in 1, 2 and 3 dimensions. Over 170 repeated runs it shows no bias, and its error bar is the right size. |
+| 2 | Does BlackJAX agree, and does it scale? | Yes. It agrees with the analytic value from 1 to 20 dimensions. In 20D, rejection sampling would need about $10^{16}$ likelihood calls. |
+| 3 | Do the Pantheon+ supernovae prefer wCDM over ΛCDM? | No. $\ln B = -2.11 \pm 0.06$ (wCDM minus ΛCDM), which favours ΛCDM. A direct integration on a grid gives $-2.08$. |
+
+I produced every result here on a CPU. Stages 2 and 3 use GPU-capable code (JAX), but I have not run it on a GPU.
 
 ## Stage 1: a nested sampler from scratch
 
@@ -130,6 +140,101 @@ The mean difference is consistent with zero in both cases, so there is no sign o
 
 The BlackJAX error on $\ln Z$ is estimated by simulating the shrinkage factors, the same idea as `simulate_logz` in Stage 1.
 
+## Stage 3: ΛCDM against wCDM with Pantheon+
+
+Files: `cosmology.py`, `stage3_pantheon.py`, `stage3_plots.py`, `data/download_pantheon.py`
+
+With the samplers tested on problems where I knew the answer, I applied them to a question where I didn't.
+
+### The data and the likelihood
+
+Pantheon+ gives a standardised apparent magnitude $m_i$ for each Type Ia supernova. If every supernova has the same absolute magnitude $M$,
+
+$$m_i = \mu(z_i) + M, \qquad \mu = 5\log_{10}\frac{d_L}{10\ \mathrm{pc}}, \qquad d_L = (1+z_{\rm hel})\,\frac{c}{H_0}\int_0^{z_{\rm HD}}\frac{dz'}{E(z')} .$$
+
+For a flat universe with matter and dark energy of constant equation of state $w$,
+
+$$E(z)^2 = \Omega_m(1+z)^3 + (1-\Omega_m)(1+z)^{3(1+w)} ,$$
+
+and ΛCDM is the case $w = -1$. The errors are correlated, so the likelihood uses the published statistical + systematic covariance matrix $C$:
+
+$$\ln\mathcal{L} = -\tfrac12\, r^{T}C^{-1}r - \tfrac12\ln\det(2\pi C), \qquad r_i = m_i - \mu(z_i) - M .$$
+
+The choices I made:
+
+- I removed supernovae with $z_{\rm HD} \le 0.01$, as in the Pantheon+ cosmology analysis. This leaves 1590 of the 1701 light curves.
+- $H_0$ and $M$ cannot be separated with supernovae alone, since both shift every magnitude by a constant. I fixed $H_0$ at 70 km/s/Mpc and left $M$ free.
+- I assumed a flat universe and ignored radiation.
+
+### Priors
+
+All uniform: $\Omega_m \in [0.01, 0.99]$, $M \in [-20, -19]$, and for wCDM $w \in [-3, 1]$.
+
+### Results
+
+`python stage3_pantheon.py`, then `python stage3_plots.py`. Nested sampling uses 1000 live points and replaces 50 points per step with $3d$ slice moves each. I repeated it with 4 seeds for each model. The table gives the mean of the 4 runs. Its error is the typical single-run error (about 0.09) divided by $\sqrt{4}$. The scatter between the 4 runs is 0.10 for ΛCDM and 0.05 for wCDM, consistent with that single-run error.
+
+| | $\ln Z$ (nested sampling) | $\ln Z$ (grid) |
+|---|---|---|
+| Flat ΛCDM | 838.05 ± 0.04 | 838.07 |
+| Flat wCDM | 835.94 ± 0.05 | 835.99 |
+| $\ln B = \ln Z_{w{\rm CDM}} - \ln Z_{\Lambda{\rm CDM}}$ | **−2.11 ± 0.06** | −2.08 |
+
+A negative $\ln B$ favours ΛCDM. The value corresponds to odds of about 8 to 1 for ΛCDM, if the two models are equally likely beforehand.
+
+The "grid" column is an independent check that uses no sampling at all. The likelihood is Gaussian in $M$, so I integrated $M$ out analytically. That leaves a one-dimensional integral over $\Omega_m$ for ΛCDM and a two-dimensional integral over $(\Omega_m, w)$ for wCDM. I did these with Simpson's rule on a 401 × 601 grid. Halving the grid resolution changes $\ln Z$ by less than $10^{-8}$.
+
+As a further check, anesthetic (the Handley group's post-processing package) computes $\ln Z$ from the same dead points and agrees with my value to within 0.003.
+
+![Posteriors](figures/stage3_posteriors.png)
+
+Parameter constraints (posterior mean ± standard deviation):
+
+| | Nested sampling (mean of 4 runs) | Grid | Brout et al. 2022, supernovae only |
+|---|---|---|---|
+| ΛCDM: $\Omega_m$ | 0.332 ± 0.018 | 0.332 ± 0.018 | 0.334 ± 0.018 |
+| wCDM: $w$ | −0.91 ± 0.15 | −0.91 ± 0.15 | −0.90 ± 0.14 |
+| wCDM: $\Omega_m$ | 0.286 ± 0.072 | 0.285 ± 0.072 | — |
+
+The published values are only there for comparison. Brout et al. use their own priors and summary statistics, so I don't expect exact agreement.
+
+### Why ΛCDM wins
+
+wCDM fits slightly better. Its best fit ($\Omega_m = 0.29$, $w = -0.89$) improves the maximum log-likelihood by only 0.23 (Δχ² = 0.45). But it spreads its prior over $w \in [-3, 1]$, and the data allow only a small part of that range. The evidence averages the likelihood over the prior, so the unused prior volume is a penalty (the Occam factor), and here it outweighs the small gain in fit.
+
+Because of this, $\ln B$ depends on the prior I chose for $w$. Restricting the grid integral to narrower ranges gives:
+
+| Prior on $w$ | $\ln B$ (grid) |
+|---|---|
+| $[-3, 1]$ | −2.08 |
+| $[-2, 0]$ | −1.39 |
+| $[-1.5, -0.5]$ | −0.69 |
+
+ΛCDM is favoured in each case, but less strongly as the prior narrows. For me this was the most useful result of the project: a Bayes factor answers a question about the models *and* their priors, and it should be reported with that in mind.
+
+### How this relates to published work
+
+Ong, Yallup & Handley (arXiv:2511.10631) report $\ln B = -2.77 \pm 0.12$ for w0waCDM against ΛCDM from DESI DR2 BAO + Pantheon+, which also favours ΛCDM. Their number can't be compared directly with mine: their model has two dark-energy parameters ($w_0$, $w_a$), and their data include BAO. The comparison is only qualitative. Both analyses find that the evidence favours ΛCDM.
+
+## How I checked it
+
+I didn't want to trust any number I couldn't check another way. Every main piece has an independent check, and most of them are in the test suite (`pytest`, 18 tests):
+
+- **Evidence on known problems.** Both samplers recover the analytic $\ln Z$ for Gaussians. The repeated runs show no bias, and the scatter matches the quoted error (Stages 1 and 2).
+- **Distances.** The JAX distance modulus agrees with direct numerical integration (`scipy.integrate.quad`) across the prior range, and with the exact Einstein–de Sitter result.
+- **Data selection.** The redshift cut keeps exactly 1590 supernovae.
+- **Likelihood.** The JAX log-likelihood agrees with a plain NumPy version.
+- **Integrating out $M$.** The analytic marginalisation agrees with a brute-force integral over $M$.
+- **Evidence for the cosmology runs.** Nested sampling agrees with the grid integration, and anesthetic agrees with my $\ln Z$ from the same dead points.
+
+I set the environment up again from `requirements.txt` on my own Windows laptop (Python 3.13) and reran all three stages. Every number matched the saved results, and all 18 tests passed.
+
+## What this project does not do
+
+- I have not run it on a GPU.
+- Stage 3 uses supernovae alone, a flat universe and a constant $w$. It does not include BAO or CMB data, curvature, or evolving dark energy ($w_0 w_a$). Those are the obvious next steps.
+- The Stage 1 sampler is a learning tool. It is only practical in a few dimensions.
+
 ## Usage
 
 ```bash
@@ -143,11 +248,21 @@ python stage1_calibration.py          # a few minutes
 # Stage 2
 python stage2_blackjax_gaussian.py    # a few minutes
 
+# Stage 3
+python data/download_pantheon.py      # 34 MB, once
+python stage3_pantheon.py             # about 30 minutes on a 2-core CPU
+python stage3_plots.py
+
 pytest
 ```
+
+The numbers in this README were produced with Python 3.13, NumPy 2.5, SciPy 1.18, JAX 0.12 and BlackJAX 1.7.2.dev22 (main branch, pinned to a commit in `requirements.txt`), on a 2-core Linux CPU. The saved outputs are in `results/`. The Pantheon+ data files are not in the repository; `data/download_pantheon.py` fetches them from the official release.
 
 ## References
 
 - J. Skilling, *Nested sampling for general Bayesian computation*, Bayesian Analysis 1, 833 (2006).
 - D. Yallup, N. Kroupa, W. Handley, *Nested Slice Sampling: Vectorized Nested Sampling for GPU-Accelerated Inference*, arXiv:2601.23252.
 - BlackJAX nested sampling workshop, github.com/handley-lab/workshop-blackjax-nested-sampling. The run loop in `blackjax_runner.py` follows it.
+- D. Scolnic et al., *The Pantheon+ Analysis: The Full Data Set and Light-curve Release*, ApJ 938, 113 (2022).
+- D. Brout et al., *The Pantheon+ Analysis: Cosmological Constraints*, ApJ 938, 110 (2022), arXiv:2202.04077.
+- D. D. Y. Ong, D. Yallup, W. Handley, *A Bayesian Perspective on Evidence for Evolving Dark Energy*, arXiv:2511.10631.
