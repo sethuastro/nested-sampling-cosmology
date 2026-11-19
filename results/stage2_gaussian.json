@@ -1,0 +1,96 @@
+{
+  "settings": {
+    "a": 5.0,
+    "sigma": 1.0,
+    "n_live": 400,
+    "num_delete": 20,
+    "num_inner_steps": "max(5, 2 d)"
+  },
+  "comparison": {
+    "d=1": {
+      "logz_analytic": -2.3025856662973543,
+      "blackjax": {
+        "logz": -2.301016279482758,
+        "logz_err": 0.04677227680207836,
+        "n_calls": 80639
+      },
+      "rejection_predicted_calls": 159576.9121605731,
+      "numpy": {
+        "logz": -2.3179438684788267,
+        "logz_err": 0.0475760935500109,
+        "n_calls": 159651
+      }
+    },
+    "d=2": {
+      "logz_analytic": -4.605171332594709,
+      "blackjax": {
+        "logz": -4.7549525009700195,
+        "logz_err": 0.07252049386193297,
+        "n_calls": 95982
+      },
+      "rejection_predicted_calls": 636619.7723675813,
+      "numpy": {
+        "logz": -4.619164658948917,
+        "logz_err": 0.06678491954184865,
+        "n_calls": 710518
+      }
+    },
+    "d=3": {
+      "logz_analytic": -6.907756998892062,
+      "blackjax": {
+        "logz": -6.987803152491998,
+        "logz_err": 0.08484180329107634,
+        "n_calls": 130488
+      },
+      "rejection_predicted_calls": 2539745.437369639,
+      "numpy": {
+        "logz": -6.930231784409721,
+        "logz_err": 0.08155284457589572,
+        "n_calls": 2334175
+      }
+    },
+    "d=5": {
+      "logz_analytic": -11.512928331486771,
+      "blackjax": {
+        "logz": -11.54599702227205,
+        "logz_err": 0.1114819659437394,
+        "n_calls": 270039
+      },
+      "rejection_predicted_calls": 40421304.05524657
+    },
+    "d=10": {
+      "logz_analytic": -23.025856662973542,
+      "blackjax": {
+        "logz": -23.368821676196312,
+        "logz_err": 0.15396392263871492,
+        "n_calls": 802409
+      },
+      "rejection_predicted_calls": 40847045538.16732
+    },
+    "d=20": {
+      "logz_analytic": -46.051713325947084,
+      "blackjax": {
+        "logz": -46.04796149822987,
+        "logz_err": 0.21313642495319202,
+        "n_calls": 2491452
+      },
+      "rejection_predicted_calls": 4.171202822992788e+16
+    }
+  },
+  "repeated_runs": {
+    "d=2": {
+      "n_runs": 20,
+      "mean_difference": 0.017290603929853356,
+      "error_on_mean_difference": 0.017337539636093753,
+      "scatter_between_runs": 0.0775358343778052,
+      "mean_estimated_error": 0.06898351290805632
+    },
+    "d=10": {
+      "n_runs": 20,
+      "mean_difference": -0.01260010242552383,
+      "error_on_mean_difference": 0.027643496680520404,
+      "scatter_between_runs": 0.12362547542686683,
+      "mean_estimated_error": 0.15191142051861112
+    }
+  }
+}

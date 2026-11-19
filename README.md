@@ -1,6 +1,8 @@
 # Nested sampling: from scratch to supernova cosmology
 
-I'm building this project to understand nested sampling properly, from the basic algorithm up to a real cosmological model comparison. This first stage is a nested sampler written in NumPy, tested on Gaussian problems where the evidence is known exactly. Next I'll move to BlackJAX Nested Slice Sampling, and then to a ΛCDM against wCDM comparison with the Pantheon+ supernovae.
+I'm building this project to understand nested sampling properly, from the basic algorithm up to a real cosmological model comparison. Stage 1 is a nested sampler written in NumPy and tested on Gaussian problems where the evidence is known exactly. Stage 2 runs the same tests with BlackJAX Nested Slice Sampling and looks at how it scales with dimension. Next is a ΛCDM against wCDM comparison with the Pantheon+ supernovae.
+
+I produced every result here on a CPU. Stage 2 uses GPU-capable code (JAX), but I have not run it on a GPU.
 
 ## Stage 1: a nested sampler from scratch
 
@@ -85,14 +87,61 @@ The mean difference is consistent with zero, and the scatter matches the estimat
 
 New points are found by rejection sampling from the whole prior. A prior draw lands inside the contour with probability $X$, so each new point costs about $1/X$ likelihood calls, and a whole run costs about $N/X_{\rm final}$. That is 2.3 million calls in 3D, and for this problem it grows by a factor of 4 with each extra dimension. This limitation is the reason for Stage 2.
 
+## Stage 2: BlackJAX Nested Slice Sampling
+
+Files: `blackjax_runner.py`, `stage2_blackjax_gaussian.py`
+
+`blackjax_runner.py` is my run loop around `blackjax.nss`. I based it on the Handley group's BlackJAX nested sampling workshop. It keeps the outer loop, the stopping rule and the bookkeeping in one place, so Stages 2 and 3 can share them.
+
+### Why slice sampling replaces rejection
+
+The outer loop is unchanged: remove the worst live points, add $\mathcal{L}_i w_i$, replace them. Only the replacement step is different.
+
+- **Rejection** draws from the whole prior and hopes to land inside the contour. The cost per point is $1/X$, which grows exponentially as the run goes on.
+- **Slice sampling** starts from a live point that is already inside the contour and moves it. It picks a random direction, finds the stretch of that line that lies inside the contour, and jumps to a uniformly chosen point on it. After a few such moves the point has forgotten where it started. The cost per point is roughly the same at any $X$.
+
+Nested Slice Sampling also removes and replaces many points per step. The replacements are independent of each other, so they can be computed in parallel. That is what makes the method suited to GPUs.
+
+### Results
+
+Same Gaussian problem, $N = 400$, 20 points replaced per step, $\max(5, 2d)$ slice moves per new point (`python stage2_blackjax_gaussian.py`):
+
+| $d$ | $\ln Z$ (analytic) | $\ln Z$ (BlackJAX) | Difference | BlackJAX calls | Rejection calls |
+|---|---|---|---|---|---|
+| 1 | −2.303 | −2.301 ± 0.047 | +0.0σ | 80,639 | 159,651 |
+| 2 | −4.605 | −4.755 ± 0.073 | −2.1σ | 95,982 | 710,518 |
+| 3 | −6.908 | −6.988 ± 0.085 | −0.9σ | 130,488 | 2,334,175 |
+| 5 | −11.513 | −11.546 ± 0.111 | −0.3σ | 270,039 | ~4 × 10⁷ (predicted) |
+| 10 | −23.026 | −23.369 ± 0.154 | −2.2σ | 802,409 | ~4 × 10¹⁰ (predicted) |
+| 20 | −46.052 | −46.048 ± 0.213 | +0.0σ | 2,491,452 | ~4 × 10¹⁶ (predicted) |
+
+I measured the rejection calls for $d \le 3$ with the Stage 1 sampler. For $d \ge 5$ I predicted them from $N/X_{\rm stop}$ and did not run them.
+
+![Cost against dimension](figures/stage2_cost_vs_dimension.png)
+
+Two of these six single runs are about 2σ low. I didn't want to wave that away, so the script repeats the run 20 times in 2D and in 10D to check whether it is chance or a bias:
+
+| $d$ | Runs | Mean difference from analytic | Scatter between runs | Mean estimated error |
+|---|---|---|---|---|
+| 2 | 20 | +0.017 ± 0.017 | 0.078 | 0.069 |
+| 10 | 20 | −0.013 ± 0.028 | 0.124 | 0.152 |
+
+The mean difference is consistent with zero in both cases, so there is no sign of a bias at this precision. The two 2σ runs were chance.
+
+The BlackJAX error on $\ln Z$ is estimated by simulating the shrinkage factors, the same idea as `simulate_logz` in Stage 1.
+
 ## Usage
 
 ```bash
 pip install -r requirements.txt
 
+# Stage 1
 python gaussian_test.py
 python stage1_plots.py
 python stage1_calibration.py          # a few minutes
+
+# Stage 2
+python stage2_blackjax_gaussian.py    # a few minutes
 
 pytest
 ```
@@ -100,3 +149,5 @@ pytest
 ## References
 
 - J. Skilling, *Nested sampling for general Bayesian computation*, Bayesian Analysis 1, 833 (2006).
+- D. Yallup, N. Kroupa, W. Handley, *Nested Slice Sampling: Vectorized Nested Sampling for GPU-Accelerated Inference*, arXiv:2601.23252.
+- BlackJAX nested sampling workshop, github.com/handley-lab/workshop-blackjax-nested-sampling. The run loop in `blackjax_runner.py` follows it.

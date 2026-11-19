@@ -2,3 +2,8 @@ numpy
 scipy
 matplotlib
 pytest
+
+# Stages 2 and 3
+jax
+# BlackJAX main branch, pinned to the commit the results were produced with.
+blackjax @ git+https://github.com/blackjax-devs/blackjax.git@e8db80fa586a12fdca044fbdfd3f364fdeb58619
