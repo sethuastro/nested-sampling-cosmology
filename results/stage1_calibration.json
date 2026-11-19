@@ -1,0 +1,29 @@
+{
+  "d=1": {
+    "n_runs": 100,
+    "mean_difference": -0.003067278928844552,
+    "error_on_mean_difference": 0.005265021172561603,
+    "scatter_between_runs": 0.05265021172561603,
+    "mean_estimated_error": 0.047047420600508504,
+    "pull_mean": -0.04067799755884462,
+    "pull_std": 1.1188073273486028
+  },
+  "d=2": {
+    "n_runs": 50,
+    "mean_difference": 0.009152677865102366,
+    "error_on_mean_difference": 0.008615892306715077,
+    "scatter_between_runs": 0.060923558760512364,
+    "mean_estimated_error": 0.06624836452516396,
+    "pull_mean": 0.14807221758207553,
+    "pull_std": 0.922254698154247
+  },
+  "d=3": {
+    "n_runs": 20,
+    "mean_difference": 0.007672233505455673,
+    "error_on_mean_difference": 0.017837769481594462,
+    "scatter_between_runs": 0.0797729302556328,
+    "mean_estimated_error": 0.08121922185164648,
+    "pull_mean": 0.10584187053902076,
+    "pull_std": 0.9805518657962984
+  }
+}
