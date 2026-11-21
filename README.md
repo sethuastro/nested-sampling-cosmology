@@ -1,4 +1,4 @@
-# Nested sampling: from scratch to supernova cosmology
+# Bayesian model comparison with nested sampling: ΛCDM vs. wCDM with Pantheon+ supernovae
 
 I built this project to understand nested sampling properly, from the basic algorithm up to a real cosmological model comparison. It has three stages, and each one builds on the one before.
 
@@ -14,7 +14,7 @@ I built this project to understand nested sampling properly, from the basic algo
 
 I produced every result here on a CPU. Stages 2 and 3 use GPU-capable code (JAX), but I have not run it on a GPU.
 
-## Stage 1: a nested sampler from scratch
+## Stage 1: A rejection-sampling nested sampler in NumPy
 
 Files: `nested_sampler.py`, `gaussian_test.py`, `stage1_plots.py`, `stage1_calibration.py`
 
